@@ -1,8 +1,5 @@
 ﻿🗣️ Voice Calendar AI - Voice-Powered Calendar Assistant
-https://img.shields.io/badge/Python-3.11%252B-blue
-https://img.shields.io/badge/FastAPI-0.104%252B-green
-https://img.shields.io/badge/Google%2520Calendar-API-orange
-https://img.shields.io/badge/Speech--to--Text-Google%2520Cloud-yellow
+
 
 A sophisticated voice-activated calendar management system that allows you to schedule, modify, and manage Google Calendar events using natural language commands. Just speak naturally, and the AI handles the rest!
 
@@ -29,3 +26,4 @@ Ollama LLM Integration: Local AI processing for natural language understanding
 Context-Aware Parsing: Understands complex commands with multiple parameters
 
 Fallback Systems: Robust error handling with regex-based fallback parsing
+
