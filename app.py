@@ -1,4 +1,4 @@
-# app.py (complete working version with next [day] fix)
+# app.py (complete working version with proper date parsing)
 import os
 import json
 import logging
@@ -31,13 +31,52 @@ class EventResponse(BaseModel):
     timezone: str = None
 
 def validate_and_correct_dates(event_data: Dict[str, Any], utterance: str = "") -> Dict[str, Any]:
-    """Validate and correct date formats with proper 'next [day]' handling"""
+    """Validate and correct date formats with proper specific date handling"""
+    utterance_lower = utterance.lower()
+    
+    # Check if we mentioned a specific month that should override any existing date
+    month_patterns = {
+        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+    }
+    
+    for month_name, month_num in month_patterns.items():
+        if month_name in utterance_lower:
+            day_match = re.search(rf"{month_name}\s+(\d{{1,2}})(?:st|nd|rd|th)?", utterance_lower)
+            if day_match:
+                day_num = int(day_match.group(1))
+                current_year = datetime.now().year
+                
+                try:
+                    corrected_date = datetime(current_year, month_num, day_num)
+                    
+                    # If we have a time in the existing start date, preserve it
+                    if "start" in event_data and event_data["start"]:
+                        start_str = event_data["start"]
+                        time_match = re.search(r"T(\d{2}:\d{2}:\d{2})", start_str)
+                        if time_match:
+                            time_part = time_match.group(1)
+                            event_data["start"] = f"{corrected_date.strftime('%Y-%m-%d')}T{time_part}"
+                            
+                            # Also update end date if it exists
+                            if "end" in event_data and event_data["end"]:
+                                end_str = event_data["end"]
+                                end_time_match = re.search(r"T(\d{2}:\d{2}:\d{2})", end_str)
+                                if end_time_match:
+                                    event_data["end"] = f"{corrected_date.strftime('%Y-%m-%d')}T{end_time_match.group(1)}"
+                    
+                    logger.info(f"Corrected to specific date: {corrected_date.strftime('%Y-%m-%d')}")
+                    break
+                    
+                except ValueError:
+                    continue
+    
+    # Original date correction logic for next day, tomorrow, etc.
     if "start" not in event_data:
         return event_data
     
     try:
         start_str = event_data.get("start", "")
-        utterance_lower = utterance.lower()
         current_year = datetime.now().year
         
         # Check if date is wrong (not current year)
@@ -75,11 +114,6 @@ def validate_and_correct_dates(event_data: Dict[str, Any], utterance: str = "") 
                 
                 # Handle specific dates (September 6th)
                 else:
-                    month_patterns = {
-                        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
-                        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
-                    }
-                    
                     date_found = False
                     for month_name, month_num in month_patterns.items():
                         if month_name in utterance_lower:
@@ -96,7 +130,7 @@ def validate_and_correct_dates(event_data: Dict[str, Any], utterance: str = "") 
                         logger.info(f"Default correction to tomorrow: {corrected_date.strftime('%Y-%m-%d')}")
                 
                 # Apply corrected date
-                corrected_start = f"{corrected_date.strftime('%Y-%m-%d')}T{time_part}-05:00"
+                corrected_start = f"{corrected_date.strftime('%Y-%m-%d')}T{time_part}"
                 event_data["start"] = corrected_start
                 
                 # Correct end time too
@@ -105,7 +139,7 @@ def validate_and_correct_dates(event_data: Dict[str, Any], utterance: str = "") 
                     end_time_match = re.search(r"T(\d{2}:\d{2}:\d{2})", end_str)
                     if end_time_match:
                         end_time_part = end_time_match.group(1)
-                        event_data["end"] = f"{corrected_date.strftime('%Y-%m-%d')}T{end_time_part}-05:00"
+                        event_data["end"] = f"{corrected_date.strftime('%Y-%m-%d')}T{end_time_part}"
     
     except Exception as e:
         logger.error(f"Date correction failed: {e}")
@@ -113,68 +147,118 @@ def validate_and_correct_dates(event_data: Dict[str, Any], utterance: str = "") 
     return event_data
 
 def extract_event_fallback(utterance: str) -> Dict[str, Any]:
-    """Improved fallback function with proper 'next [day]' handling"""
+    """Improved fallback function with proper date parsing for specific dates"""
     utterance_lower = utterance.lower()
-    result = {"intent": "CreateEvent", "title": "Meeting"}
+    result = {"intent": "CreateEvent", "title": "Meeting", "timezone": "America/New_York"}
     
     today = datetime.now()
+    current_year = today.year
     
-    # Handle "next [day]" patterns
-    day_mapping = {
-        'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
-        'friday': 4, 'saturday': 5, 'sunday': 6
+    # Handle specific dates like "September 18th"
+    month_patterns = {
+        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
     }
     
     event_date = None
-    next_day_match = re.search(r"next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)", utterance_lower)
+    date_found = False
     
-    if next_day_match:
-        day_name = next_day_match.group(1)
-        target_weekday = day_mapping[day_name]
-        current_weekday = today.weekday()
-        
-        days_until_next = (target_weekday - current_weekday) % 7
-        if days_until_next <= 0:
-            days_until_next += 7
-        
-        event_date = today + timedelta(days=days_until_next)
-        result["title"] = f"{day_name.title()} Meeting"
-        
-    elif "tomorrow" in utterance_lower:
-        event_date = today + timedelta(days=1)
-        
-    else:
-        event_date = today + timedelta(days=1)
+    # Parse specific month-day patterns
+    for month_name, month_num in month_patterns.items():
+        if month_name in utterance_lower:
+            # Match patterns like "September 18th", "September 18", "september 18th at"
+            day_match = re.search(rf"{month_name}\s+(\d{{1,2}})(?:st|nd|rd|th)?", utterance_lower)
+            if day_match:
+                day_num = int(day_match.group(1))
+                try:
+                    event_date = datetime(current_year, month_num, day_num)
+                    result["title"] = f"Meeting on {month_name.title()} {day_num}"
+                    date_found = True
+                    logger.info(f"Parsed specific date: {event_date.strftime('%Y-%m-%d')}")
+                    break
+                except ValueError:
+                    # Invalid date (e.g., February 30)
+                    continue
     
-    # Parse time
-    time_match = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", utterance_lower)
+    # Handle "next [day]" patterns if no specific date found
+    if not date_found:
+        day_mapping = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+            'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        
+        next_day_match = re.search(r"next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)", utterance_lower)
+        
+        if next_day_match:
+            day_name = next_day_match.group(1)
+            target_weekday = day_mapping[day_name]
+            current_weekday = today.weekday()
+            
+            days_until_next = (target_weekday - current_weekday) % 7
+            if days_until_next <= 0:
+                days_until_next += 7
+            
+            event_date = today + timedelta(days=days_until_next)
+            result["title"] = f"{day_name.title()} Meeting"
+            
+        elif "tomorrow" in utterance_lower:
+            event_date = today + timedelta(days=1)
+            
+        else:
+            # Default to today if no date specified
+            event_date = today
+    
+    # Parse time with better pattern matching
+    time_match = re.search(r"at\s+(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.|am|pm|a\.m|p\.m)?", utterance_lower, re.IGNORECASE)
     if time_match and event_date:
         hour = int(time_match.group(1))
         minute = int(time_match.group(2) or "0")
-        period = time_match.group(3)
+        period = (time_match.group(3) or "").lower().replace('.', '')
         
-        if period == "pm" and hour < 12:
-            hour += 12
-        elif period == "am" and hour == 12:
+        # Convert to 24-hour format
+        if any(p in period for p in ['pm', 'p.m']):
+            if hour < 12:
+                hour += 12
+        elif any(p in period for p in ['am', 'a.m']) and hour == 12:
             hour = 0
         
-        start_time = event_date.replace(hour=hour, minute=minute, second=0)
-        result["start"] = start_time.isoformat()
-        result["end"] = (start_time + timedelta(hours=1)).isoformat()
+        # Handle 12-hour format without AM/PM (assume PM if ambiguous)
+        if not period and hour < 8:
+            hour += 12  # Assume evening for hours 1-7 without AM/PM
+        
+        try:
+            start_time = event_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            result["start"] = start_time.isoformat()
+            
+            # Set default duration of 1 hour if not specified
+            default_duration = 60
+            result["end"] = (start_time + timedelta(minutes=default_duration)).isoformat()
+            result["duration_minutes"] = default_duration
+        except ValueError as e:
+            logger.error(f"Invalid time: {e}")
     
-    # Parse duration
-    duration_match = re.search(r"for\s+(\d+)\s+(hour|minute)", utterance_lower)
+    # Parse duration more accurately
+    duration_match = re.search(r"for\s+(\d+)\s*(hour|hr|minute|min|minutes|hrs|hours)", utterance_lower)
     if duration_match and "start" in result:
         duration = int(duration_match.group(1))
-        unit = duration_match.group(2)
+        unit = duration_match.group(2).lower()
         
-        start_time = datetime.fromisoformat(result["start"].replace('Z', '+00:00'))
-        if unit == "hour":
-            result["end"] = (start_time + timedelta(hours=duration)).isoformat()
-            result["duration_minutes"] = duration * 60
-        elif unit == "minute":
-            result["end"] = (start_time + timedelta(minutes=duration)).isoformat()
-            result["duration_minutes"] = duration
+        try:
+            start_time = datetime.fromisoformat(result["start"].replace('Z', '+00:00'))
+            
+            if any(u in unit for u in ['hour', 'hr']):
+                result["end"] = (start_time + timedelta(hours=duration)).isoformat()
+                result["duration_minutes"] = duration * 60
+            else:
+                result["end"] = (start_time + timedelta(minutes=duration)).isoformat()
+                result["duration_minutes"] = duration
+        except Exception as e:
+            logger.error(f"Error calculating end time: {e}")
+    
+    # Parse title from utterance (first few meaningful words)
+    words = [word for word in utterance.split() if word.lower() not in ['schedule', 'a', 'meeting', 'with', 'on', 'at', 'for']]
+    if len(words) > 0:
+        result["title"] = " ".join(words[:4])  # Use first 4 meaningful words as title
     
     # Parse attendees
     email_matches = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', utterance)
