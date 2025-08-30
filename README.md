@@ -5,11 +5,11 @@ A sophisticated voice-activated calendar management system that allows you to sc
 
 ## 🌟 Features
 ### 🎙️ Voice Command Recognition
-- Real-time Speech-to-Text: Powered by Google Cloud Speech-to-Text
+- **Real-time Speech-to-Text:** Powered by Google Cloud Speech-to-Text
 
-- Natural Language Understanding: Advanced AI parsing using Ollama LLM
+- **Natural Language Understanding:** Advanced AI parsing using Ollama LLM
 
-- Smart Audio Handling: Automatic silence detection and noise filtering
+- **Smart Audio Handling:** Automatic silence detection and noise filtering
 
 ### 📅 Intelligent Calendar Management
 - Event Creation: "Schedule a meeting with John next Friday at 3 PM for 45 minutes"
@@ -26,6 +26,7 @@ A sophisticated voice-activated calendar management system that allows you to sc
 - Context-Aware Parsing: Understands complex commands with multiple parameters
 
 - Fallback Systems: Robust error handling with regex-based fallback parsing
+
 
 
 
