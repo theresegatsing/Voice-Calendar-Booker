@@ -21,11 +21,12 @@ A sophisticated voice-activated calendar management system that allows you to sc
 - **Conflict Detection:** Warns about scheduling conflicts before creating events
 
 ### 🤖 Advanced AI Integration
-- Ollama LLM Integration: Local AI processing for natural language understanding
+- **Ollama LLM Integration:** Local AI processing for natural language understanding
 
-- Context-Aware Parsing: Understands complex commands with multiple parameters
+- **Context-Aware Parsing:** Understands complex commands with multiple parameters
 
-- Fallback Systems: Robust error handling with regex-based fallback parsing
+- **Fallback Systems:** Robust error handling with regex-based fallback parsing
+
 
 
 
