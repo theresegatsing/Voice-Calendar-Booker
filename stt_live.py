@@ -1,9 +1,14 @@
-# stt_live.py
-import queue, sys, signal, re, shutil
+# stt_live.py (FINAL VERSION with better feedback)
+import queue
+import sys
+import signal
+import re
+import shutil
 import numpy as np
 import sounddevice as sd
 from google.cloud import speech
 from google.auth.exceptions import DefaultCredentialsError
+import time
 
 LANGUAGE = "en-US"
 SAMPLE_RATE = 16000
@@ -41,19 +46,32 @@ def _request_generator():
 def transcribe_once() -> str:
     global committed_text
     committed_text = ""
+    
+    print("🎤 Speak now... (Press Ctrl+C when done)")
+    print("3...", end="", flush=True)
+    time.sleep(1)
+    print("2...", end="", flush=True)
+    time.sleep(1)
+    print("1...", end="", flush=True)
+    time.sleep(1)
+    print("GO! 🎙️")
+    
     try:
         client = speech.SpeechClient()
     except DefaultCredentialsError:
         print("[!] No Google Speech credentials. Falling back to typed input.")
         return input("🧑 Type your command: ")
+    
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=SAMPLE_RATE,
         language_code=LANGUAGE,
         enable_automatic_punctuation=True,
     )
+    
     streaming_config = speech.StreamingRecognitionConfig(config=config, interim_results=True)
     blocksize = int(SAMPLE_RATE / BLOCKS_PER_SECOND)
+    
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, dtype="float32",
                         blocksize=blocksize, callback=_audio_callback):
         requests = _request_generator()
@@ -65,10 +83,11 @@ def transcribe_once() -> str:
                     txt = clean_text(alt.transcript)
                     if result.is_final:
                         committed_text = (committed_text + " " + txt).strip()
-                        one_line_preview(committed_text)
+                        one_line_preview("🎤 " + committed_text)
         except KeyboardInterrupt:
-            pass
+            print("\n⏹️  Recording stopped")
         finally:
             audio_q.put(None)
-    print("\n📝 Transcript:\n", committed_text)
+    
+    print("\n✅ Transcript complete")
     return committed_text
