@@ -83,7 +83,7 @@ def to_gcal_event(nlu: Dict[str, Any], start: str, end: str) -> Dict[str, Any]:
     # Add attendees if present
     attendees = nlu.get("attendees", [])
     if attendees and isinstance(attendees, list):
-        ev["attendees"] = [{"email": email} for email in attendees if isinstance(email, str)]
+        ev["attendees"] = [{"email": email} for email in attendees if isinstance(email, str) and "@" in email]
     
     return ev
 
@@ -97,7 +97,9 @@ def handle_once():
     print(f"🎯 Extracted intent: {intent}")
     print(f"📋 NLU data: {json.dumps(nlu, indent=2)}")
     
-    if intent == "CreateEvent":
+    # Handle all create event intent variations
+    create_intents = ["CreateEvent", "get_calendar_event", "bookMeeting", "schedule", "book", "create"]
+    if any(create_intent in intent.lower() for create_intent in create_intents):
         start, end, dur = nlu.get("start"), nlu.get("end"), nlu.get("duration_minutes")
         print(f"⏰ Start: {start}, End: {end}, Duration: {dur}")
         
@@ -140,10 +142,10 @@ def handle_once():
         except Exception as e:
             print(f"❌ Failed to create event: {e}")
     
-    elif intent == "MoveEvent":
+    elif "move" in intent.lower() or "reschedule" in intent.lower():
         print("➡️  Move event intent detected (not implemented)")
     
-    elif intent == "CancelEvent":
+    elif "cancel" in intent.lower() or "delete" in intent.lower():
         print("❌ Cancel event intent detected (not implemented)")
     
     else:
